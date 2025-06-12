@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Yjs Server Monitor</title>
+    <style>
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+          sans-serif;
+        margin: 20px;
+        background: #f5f5f5;
+      }
+      .container {
+        max-width: 1200px;
+        margin: 0 auto;
+      }
+      .card {
+        background: white;
+        padding: 20px;
+        margin: 20px 0;
+        border-radius: 8px;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+      }
+      .stats {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 20px;
+        margin-bottom: 20px;
+      }
+      .stat {
+        text-align: center;
+        padding: 15px;
+        background: #007bff;
+        color: white;
+        border-radius: 4px;
+      }
+      .stat-value {
+        font-size: 2em;
+        font-weight: bold;
+      }
+      .stat-label {
+        font-size: 0.9em;
+        opacity: 0.9;
+      }
+      .document {
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        padding: 15px;
+        margin: 10px 0;
+        background: #f9f9f9;
+      }
+      .document-name {
+        font-weight: bold;
+        color: #333;
+        margin-bottom: 10px;
+      }
+      .document-data {
+        font-family: monospace;
+        background: #f0f0f0;
+        padding: 10px;
+        border-radius: 4px;
+        white-space: pre-wrap;
+        max-height: 300px;
+        overflow-y: auto;
+      }
+      .refresh-btn {
+        background: #007bff;
+        color: white;
+        border: none;
+        padding: 10px 20px;
+        border-radius: 4px;
+        cursor: pointer;
+        margin-right: 10px;
+      }
+      .refresh-btn:hover {
+        background: #0056b3;
+      }
+      .status {
+        padding: 4px 8px;
+        border-radius: 4px;
+        font-size: 0.8em;
+        font-weight: bold;
+        background: #d4edda;
+        color: #155724;
+      }
+      .error {
+        color: red;
+        background: #f8d7da;
+        padding: 10px;
+        border-radius: 4px;
+        margin: 10px 0;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <div class="card">
+        <h1>🚀 Yjs Server Monitor</h1>
+        <p>Real-time monitoring of Yjs document collaboration</p>
+        <button class="refresh-btn" onclick="fetchData()">🔄 Refresh</button>
+        <label>
+          <input type="checkbox" id="autoRefresh" checked /> Auto-refresh (5s)
+        </label>
+        <span id="lastUpdate" style="margin-left: 20px; color: #666"></span>
+      </div>
+
+      <div class="stats" id="statsContainer">
+        <div class="stat">
+          <div class="stat-value" id="wsConnections">-</div>
+          <div class="stat-label">WebSocket Connections</div>
+        </div>
+        <div class="stat">
+          <div class="stat-value" id="webrtcConnections">-</div>
+          <div class="stat-label">WebRTC Connections</div>
+        </div>
+        <div class="stat">
+          <div class="stat-value" id="activeDocuments">-</div>
+          <div class="stat-label">Active Documents</div>
+        </div>
+        <div class="stat">
+          <div class="stat-value" id="yjsUpdates">-</div>
+          <div class="stat-label">Yjs Updates</div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>📄 Documents</h2>
+        <div id="documentsContainer">
+          <p>Loading documents...</p>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>🔧 API Endpoints</h2>
+        <ul>
+          <li><code>GET /stats</code> - Server statistics</li>
+          <li><code>GET /ydocs</code> - All documents data</li>
+          <li><code>GET /ydoc/{room-name}</code> - Specific document data</li>
+        </ul>
+      </div>
+    </div>
+
+    <script>
+      const serverUrl = "http://localhost:4444";
+      let autoRefreshInterval;
+
+      async function fetchData() {
+        try {
+          document.getElementById(
+            "lastUpdate"
+          ).textContent = `Last updated: ${new Date().toLocaleTimeString()}`;
+
+          // Fetch server stats
+          const statsResponse = await fetch(`${serverUrl}/stats`);
+          const stats = await statsResponse.json();
+
+          // Update stats display
+          document.getElementById("wsConnections").textContent =
+            stats.activeConnections.websocket;
+          document.getElementById("webrtcConnections").textContent =
+            stats.activeConnections.webrtc;
+          document.getElementById("activeDocuments").textContent =
+            stats.activeDocuments;
+          document.getElementById("yjsUpdates").textContent = stats.yjsUpdates;
+
+          // Fetch documents data
+          const docsResponse = await fetch(`${serverUrl}/ydocs`);
+          const docs = await docsResponse.json();
+
+          displayDocuments(docs);
+        } catch (error) {
+          console.error("Error fetching data:", error);
+          document.getElementById(
+            "documentsContainer"
+          ).innerHTML = `<div class="error">❌ Error connecting to server: ${error.message}</div>`;
+        }
+      }
+
+      function displayDocuments(docs) {
+        const container = document.getElementById("documentsContainer");
+
+        if (Object.keys(docs).length === 0) {
+          container.innerHTML = "<p>No active documents</p>";
+          return;
+        }
+
+        let html = "";
+        for (const [docName, docInfo] of Object.entries(docs)) {
+          const displayName = docName || "(default)";
+          const hasData = Object.keys(docInfo.data).length > 0;
+          const totalConnections =
+            docInfo.websocketConnections + docInfo.webrtcConnections;
+
+          html += `
+                    <div class="document">
+                        <div class="document-name">
+                            📄 ${displayName}
+                            <span class="status">${totalConnections} connections (WS: ${
+            docInfo.websocketConnections
+          }, WebRTC: ${docInfo.webrtcConnections})</span>
+                        </div>
+                        <p><strong>Last Modified:</strong> ${new Date(
+                          docInfo.lastModified
+                        ).toLocaleString()}</p>
+                        <p><strong>Data Keys:</strong> ${
+                          Object.keys(docInfo.data).join(", ") || "None"
+                        }</p>
+                        ${
+                          hasData
+                            ? `
+                            <details>
+                                <summary>📊 Document Data (${
+                                  Object.keys(docInfo.data).length
+                                } keys)</summary>
+                                <div class="document-data">${JSON.stringify(
+                                  docInfo.data,
+                                  null,
+                                  2
+                                )}</div>
+                            </details>
+                        `
+                            : "<p><em>No data in document yet</em></p>"
+                        }
+                    </div>
+                `;
+        }
+
+        container.innerHTML = html;
+      }
+
+      function toggleAutoRefresh() {
+        const checkbox = document.getElementById("autoRefresh");
+
+        if (checkbox.checked) {
+          autoRefreshInterval = setInterval(fetchData, 5000);
+        } else {
+          clearInterval(autoRefreshInterval);
+        }
+      }
+
+      // Initialize
+      document
+        .getElementById("autoRefresh")
+        .addEventListener("change", toggleAutoRefresh);
+      fetchData();
+      toggleAutoRefresh();
+
+      console.log("🚀 Yjs Server Monitor loaded");
+      console.log("📡 Server URL:", serverUrl);
+      console.log("🔄 Auto-refresh: 5 seconds");
+    </script>
+  </body>
+</html>

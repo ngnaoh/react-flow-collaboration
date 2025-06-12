@@ -1,0 +1,19 @@
+{
+  "name": "server",
+  "version": "1.0.0",
+  "description": "",
+  "type": "module",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "lib0": "^0.2.108",
+    "ws": "^8.18.2",
+    "y-protocols": "^1.0.6",
+    "yjs": "^13.6.27"
+  }
+}
